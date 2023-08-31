@@ -44,9 +44,6 @@ func TestIntegrationIPv4Conn(t *testing.T) {
 	}
 	defer c.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	// Ping localhost on lo as it should pretty much always work with no
 	// potential firewall issues.
 	var (
@@ -61,22 +58,7 @@ func TestIntegrationIPv4Conn(t *testing.T) {
 		}
 	)
 
-	if err := c.WriteTo(ctx, req, dst); err != nil {
-		t.Fatalf("failed to write echo: %v", err)
-	}
-
-	t.Logf("ping: %s: %#v", dst, req)
-
-	res, src, err := c.ReadFrom(ctx)
-	if err != nil {
-		t.Fatalf("failed to read echo: %v", err)
-	}
-
-	t.Logf("pong: %s: %#v", src, res)
-
-	if diff := cmp.Diff(dst, src, cmp.Comparer(ipEqual)); diff != "" {
-		t.Fatalf("unexpected source IP (-want +got):\n%s", diff)
-	}
+	res := ping(t, c, req, dst)
 
 	// The kernel set a checksum on our outgoing message but we don't care about
 	// it for comparing the expected echo reply. Verify it's set and move on to
@@ -112,9 +94,6 @@ func TestIntegrationIPv6Conn(t *testing.T) {
 	}
 	defer c.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	// Ping localhost on lo as it should pretty much always work with no
 	// potential firewall issues.
 	var (
@@ -128,6 +107,37 @@ func TestIntegrationIPv6Conn(t *testing.T) {
 			},
 		}
 	)
+
+	res := ping(t, c, req, dst)
+
+	// The kernel set a checksum on our outgoing message but we don't care about
+	// it for comparing the expected echo reply. Verify it's set and move on to
+	// compare the echo reply.
+	if res.Checksum == 0 {
+		t.Fatal("no ICMPv6 checksum was set on echo reply")
+	}
+	res.Checksum = 0
+
+	want := &icmp.Message{
+		Type: ipv6.ICMPTypeEchoReply,
+		Body: req.Body,
+	}
+
+	if diff := cmp.Diff(want, res); diff != "" {
+		t.Fatalf("unexpected echo reply (-want +got):\n%s", diff)
+	}
+}
+
+func ping(
+	t *testing.T,
+	c icmpx.Conn,
+	req *icmp.Message,
+	dst netip.Addr,
+) *icmp.Message {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
 	if err := c.WriteTo(ctx, req, dst); err != nil {
 		t.Fatalf("failed to write echo: %v", err)
@@ -146,22 +156,7 @@ func TestIntegrationIPv6Conn(t *testing.T) {
 		t.Fatalf("unexpected source IP (-want +got):\n%s", diff)
 	}
 
-	// The kernel set a checksum on our outgoing message but we don't care about
-	// it for comparing the expected echo reply. Verify it's set and move on to
-	// compare the echo reply.
-	if res.Checksum == 0 {
-		t.Fatal("no ICMPv6 checksum was set on echo reply")
-	}
-	res.Checksum = 0
-
-	want := &icmp.Message{
-		Type: ipv6.ICMPTypeEchoReply,
-		Body: req.Body,
-	}
-
-	if diff := cmp.Diff(want, res); diff != "" {
-		t.Fatalf("unexpected echo reply (-want +got):\n%s", diff)
-	}
+	return res
 }
 
 func echoID(t *testing.T) int {

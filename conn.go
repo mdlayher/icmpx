@@ -3,12 +3,26 @@ package icmpx
 import (
 	"context"
 	"errors"
+	"io"
 	"net"
 	"net/netip"
 	"sync"
 
 	"golang.org/x/net/icmp"
 )
+
+// A Conn allows reading and writing ICMPv4/6 messages, depending on the
+// concrete type of Conn.
+type Conn interface {
+	// Close closes the underlying socket.
+	io.Closer
+
+	// ReadFrom reads an ICMP message and returns the sender's IP address.
+	ReadFrom(ctx context.Context) (*icmp.Message, netip.Addr, error)
+
+	// WriteTo writes an ICMP message to a destination IP address.
+	WriteTo(ctx context.Context, msg *icmp.Message, dst netip.Addr) error
+}
 
 // An IPv4Conn allows reading and writing ICMPv4 data on a network interface.
 type IPv4Conn struct {
