@@ -73,6 +73,9 @@ func (c *IPv4Conn) ReadFrom(ctx context.Context) (*icmp.Message, netip.Addr, err
 	return c.recvfromLocked(ctx)
 }
 
+// SetTOS sets the IPv4 Type of Service (ToS) field for outgoing packets.
+func (c *IPv4Conn) SetTOS(tos int) error { return c.setTOS(tos) }
+
 // An IPv6Conn allows reading and writing ICMPv6 data on a network interface.
 type IPv6Conn struct {
 	// IP is the chosen IPv6 bind address for ICMPv6 communication.
@@ -121,3 +124,6 @@ func (c *IPv6Conn) ReadFrom(ctx context.Context) (*icmp.Message, netip.Addr, err
 
 	return c.recvfromLocked(ctx)
 }
+
+// SetTrafficClass sets the IPv6 Traffic Class field for outgoing packets.
+func (c *IPv6Conn) SetTrafficClass(tc int) error { return c.setTrafficClass(tc) }

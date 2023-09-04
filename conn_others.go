@@ -31,3 +31,6 @@ func (*IPv4Conn) recvfromLocked(_ context.Context) (*icmp.Message, netip.Addr, e
 func (*IPv6Conn) recvfromLocked(_ context.Context) (*icmp.Message, netip.Addr, error) {
 	return nil, netip.Addr{}, errUnimplemented
 }
+
+func (*IPv4Conn) setTOS(_ int) error          { return errUnimplemented }
+func (*IPv6Conn) setTrafficClass(_ int) error { return errUnimplemented }

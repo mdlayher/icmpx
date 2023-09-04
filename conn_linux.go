@@ -83,6 +83,11 @@ func (c *IPv4Conn) recvfromLocked(ctx context.Context) (*icmp.Message, netip.Add
 	return m, fromSockaddr(addr), nil
 }
 
+// setTOS sets the IPv4 Type of Service socket option.
+func (c *IPv4Conn) setTOS(tos int) error {
+	return c.c.SetsockoptInt(unix.SOL_IP, unix.IP_TOS, tos)
+}
+
 // set applies the IPv4 filter to a *socket.Conn.
 func (f *IPv4Filter) set(c *socket.Conn) error {
 	// The filter is technically a 4 byte struct but passing a uint32 with an
@@ -146,6 +151,11 @@ func (c *IPv6Conn) recvfromLocked(ctx context.Context) (*icmp.Message, netip.Add
 	}
 
 	return m, fromSockaddr(addr), nil
+}
+
+// setTrafficClass sets the IPv6 Traffic Class socket option.
+func (c *IPv6Conn) setTrafficClass(tc int) error {
+	return c.c.SetsockoptInt(unix.SOL_IPV6, unix.IPV6_TCLASS, tc)
 }
 
 // set applies the IPv6 filter to a *socket.Conn.
