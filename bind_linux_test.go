@@ -248,6 +248,52 @@ func Test_fromSockaddr(t *testing.T) {
 	}
 }
 
+func Test_fromSockaddrIPv6(t *testing.T) {
+	tests := []struct {
+		name string
+		sa   unix.Sockaddr
+		ip   netip.Addr
+	}{
+		{
+			name: "IPv6 LLA",
+			sa: &unix.SockaddrInet6{
+				Addr: [16]byte{
+					0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+				},
+				ZoneId: 1,
+			},
+			ip: netip.MustParseAddr("fe80::1%lo"),
+		},
+		{
+			name: "IPv6 GUA",
+			sa: &unix.SockaddrInet6{
+				Addr: [16]byte{
+					0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,
+					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+				},
+			},
+			ip: netip.MustParseAddr("2001:db8::1"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ip, err := fromSockaddrIPv6(tt.sa, &net.Interface{
+				Name:  "lo",
+				Index: 1,
+			})
+			if err != nil {
+				t.Fatalf("failed to convert sockaddr: %v", err)
+			}
+
+			if diff := cmp.Diff(tt.ip, ip, cmp.Comparer(ipEqual)); diff != "" {
+				t.Fatalf("unexpected IP address (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func saEqual(x, y unix.Sockaddr) bool {
 	if reflect.TypeOf(x) != reflect.TypeOf(y) {
 		return false

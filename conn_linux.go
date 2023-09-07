@@ -2,8 +2,10 @@ package icmpx
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/netip"
+	"strconv"
 
 	"github.com/mdlayher/socket"
 	"golang.org/x/net/icmp"
@@ -150,7 +152,12 @@ func (c *IPv6Conn) recvfromLocked(ctx context.Context) (*icmp.Message, netip.Add
 		return nil, netip.Addr{}, err
 	}
 
-	return m, fromSockaddr(addr), nil
+	ip, err := fromSockaddrIPv6(addr, c.ifi)
+	if err != nil {
+		return nil, netip.Addr{}, err
+	}
+
+	return m, ip, nil
 }
 
 // setTrafficClass sets the IPv6 Traffic Class socket option.
@@ -161,4 +168,25 @@ func (c *IPv6Conn) setTrafficClass(tc int) error {
 // set applies the IPv6 filter to a *socket.Conn.
 func (f *IPv6Filter) set(c *socket.Conn) error {
 	return c.SetsockoptICMPv6Filter(unix.SOL_ICMPV6, unix.ICMPV6_FILTER, &unix.ICMPv6Filter{Data: f.data})
+}
+
+// fromSockaddrIPv6 converts an IPv6 sockaddr into a netip.Addr while also
+// performing correct zone mapping for IPv6 link-local addresses.
+func fromSockaddrIPv6(sa unix.Sockaddr, ifi *net.Interface) (netip.Addr, error) {
+	ip := fromSockaddr(sa)
+	if ip.Is4() {
+		return netip.Addr{}, fmt.Errorf("found IPv4 address %q in IPv6-only context", ip)
+	}
+
+	switch z := ip.Zone(); z {
+	case strconv.Itoa(ifi.Index):
+		// Matches known address index, rewrite with interface name for
+		// usability.
+		return ip.WithZone(ifi.Name), nil
+	case "":
+		// No zone.
+		return ip, nil
+	default:
+		return netip.Addr{}, fmt.Errorf("unknown IPv6 zone ID: %s", z)
+	}
 }
