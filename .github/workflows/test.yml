@@ -27,11 +27,17 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v3
 
-      - name: Build test binary
-        run: go test -c -race
+      - name: Build test binaries
+        run: go test -c -race ./...
 
-      - name: Apply CAP_NET_RAW
+      - name: Apply CAP_NET_RAW for icmpx
         run: sudo setcap cap_net_raw+ep ./icmpx.test
 
-      - name: Run tests
+      - name: Apply CAP_NET_RAW for echo
+        run: sudo setcap cap_net_raw+ep ./echo.test
+
+      - name: Run icmpx tests
         run: ./icmpx.test -test.v
+
+      - name: Run echo tests
+        run: ./echo.test -test.v
